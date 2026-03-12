@@ -5,7 +5,7 @@ import { POLL_INTERVAL_MS } from "@/lib/constants";
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export function useSessions() {
-  const { data, error, isLoading } = useSWR<{ sessions: ClaudeSession[] }>(
+  const { data, error, isLoading, mutate } = useSWR<{ sessions: ClaudeSession[] }>(
     "/api/sessions",
     fetcher,
     { refreshInterval: POLL_INTERVAL_MS }
@@ -15,5 +15,6 @@ export function useSessions() {
     sessions: data?.sessions ?? [],
     error,
     isLoading,
+    refresh: mutate,
   };
 }

@@ -87,10 +87,20 @@ export function QuickActions({
     setTimeout(() => setPrSending(false), 2000);
   };
 
-  const openPrUrl = (e: React.MouseEvent) => {
+  const openPrUrl = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (prUrl) window.open(prUrl, "_blank");
+    if (!prUrl) return;
+    try {
+      await fetch("/api/actions/open", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "open-url", url: prUrl }),
+      });
+    } catch {
+      // Fallback
+      window.open(prUrl, "_blank");
+    }
   };
 
   const showPRButton = pid && (status === "idle" || status === "waiting");
@@ -127,12 +137,12 @@ export function QuickActions({
           </svg>
         </IconButton>
       )}
-      <IconButton onClick={(e) => openAction(e, "vscode")} title="Open VS Code" className={`flex-1 ${iconBtnClass}`}>
+      <IconButton onClick={(e) => openAction(e, "editor")} title="Open in editor" className={`flex-1 ${iconBtnClass}`}>
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
         </svg>
       </IconButton>
-      <IconButton onClick={(e) => openAction(e, "fork")} title="Open in Fork" className={`flex-1 ${iconBtnClass}`}>
+      <IconButton onClick={(e) => openAction(e, "git-gui")} title="Open in Git GUI" className={`flex-1 ${iconBtnClass}`}>
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 3v12m0 0a3 3 0 103 3H15a3 3 0 100-3H9a3 3 0 01-3-3zm0 0a3 3 0 103-3 3 3 0 00-3 3z" />
         </svg>

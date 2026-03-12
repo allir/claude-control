@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { execFile, exec } from "child_process";
 import { promisify } from "util";
 import { stat } from "fs/promises";
+import { loadConfig, EDITOR_OPTIONS, GIT_GUI_OPTIONS, BROWSER_OPTIONS } from "@/lib/config";
 
 const execFileAsync = promisify(execFile);
 const execAsync = promisify(exec);
 
-type ActionType = "iterm" | "vscode" | "finder" | "fork" | "send-message";
+type ActionType = "iterm" | "editor" | "finder" | "git-gui" | "send-message" | "send-keystroke" | "open-url";
 
 async function getTtyForPid(pid: number): Promise<string> {
   const { stdout: ttyOut } = await execFileAsync("ps", ["-o", "tty=", "-p", String(pid)], {
@@ -42,6 +43,73 @@ tell application "iTerm"
 end tell`;
 
   await execFileAsync("osascript", ["-e", script], { timeout: 10000 });
+}
+
+async function sendKeystrokeToSession(pid: number, keystroke: string): Promise<void> {
+  const ttyPath = await getTtyForPid(pid);
+
+  // Map logical keystrokes to AppleScript
+  let asKeystroke: string;
+  switch (keystroke) {
+    case "return":
+      asKeystroke = `key code 36`; // Return
+      break;
+    case "escape":
+      asKeystroke = `key code 53`; // Escape
+      break;
+    case "tab":
+      asKeystroke = `key code 48`; // Tab
+      break;
+    case "space":
+      asKeystroke = `keystroke " "`; // Space
+      break;
+    case "up":
+      asKeystroke = `key code 126`; // Arrow up
+      break;
+    case "down":
+      asKeystroke = `key code 125`; // Arrow down
+      break;
+    case "y":
+      asKeystroke = `keystroke "y"`;
+      break;
+    case "n":
+      asKeystroke = `keystroke "n"`;
+      break;
+    default:
+      asKeystroke = `keystroke "${keystroke.replace(/"/g, '\\"')}"`;
+  }
+
+  // Step 1: Activate iTerm and focus the right session
+  const focusScript = `
+tell application "iTerm"
+  activate
+  repeat with aWindow in windows
+    repeat with aTab in tabs of aWindow
+      repeat with aSession in sessions of aTab
+        if tty of aSession is "${ttyPath}" then
+          select aWindow
+          select aTab
+          select aSession
+          return
+        end if
+      end repeat
+    end repeat
+  end repeat
+end tell`;
+
+  await execFileAsync("osascript", ["-e", focusScript], { timeout: 5000 });
+
+  // Step 2: Brief delay to ensure iTerm is focused, then send keystroke
+  await new Promise((r) => setTimeout(r, 150));
+
+  const keystrokeScript = `
+tell application "System Events"
+  tell process "iTerm2"
+    ${asKeystroke}
+  end tell
+end tell`;
+
+  await execFileAsync("osascript", ["-e", keystrokeScript], { timeout: 5000 });
 }
 
 async function focusItermByPid(pid: number): Promise<void> {
@@ -122,19 +190,24 @@ return "ok"
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { action, path, pid, targetScreen, message } = body as {
+    const { action, path, pid, targetScreen, message, url, keystroke } = body as {
       action: ActionType;
-      path: string;
+      path?: string;
       pid?: number;
       targetScreen?: number;
       message?: string;
+      url?: string;
+      keystroke?: string;
     };
 
-    if (!action || !path) {
-      return NextResponse.json({ error: "Missing action or path" }, { status: 400 });
+    if (!action) {
+      return NextResponse.json({ error: "Missing action" }, { status: 400 });
     }
 
-    if (action !== "iterm" && action !== "send-message") {
+    if (action !== "iterm" && action !== "send-message" && action !== "send-keystroke" && action !== "open-url") {
+      if (!path) {
+        return NextResponse.json({ error: "Missing path" }, { status: 400 });
+      }
       try {
         await stat(path);
       } catch {
@@ -149,28 +222,33 @@ export async function POST(request: Request) {
         }
         await focusItermByPid(pid);
         break;
-      case "vscode":
-        await execFileAsync("code", [path]);
+      case "editor": {
+        const config = await loadConfig();
+        const editorDef = EDITOR_OPTIONS.find((e) => e.id === config.editor) ?? EDITOR_OPTIONS[0];
+        await execFileAsync(editorDef.command, [path!]);
         if (targetScreen !== undefined) {
-          // Small delay for VS Code to open/focus
           await new Promise((r) => setTimeout(r, 800));
-          await moveAppToScreen("Code", targetScreen);
+          await moveAppToScreen(editorDef.appName, targetScreen);
         }
         break;
+      }
       case "finder":
-        await execFileAsync("open", [path]);
+        await execFileAsync("open", [path!]);
         if (targetScreen !== undefined) {
           await new Promise((r) => setTimeout(r, 500));
           await moveAppToScreen("Finder", targetScreen);
         }
         break;
-      case "fork":
-        await execFileAsync("open", ["-a", "Fork", path]);
+      case "git-gui": {
+        const gitConfig = await loadConfig();
+        const guiDef = GIT_GUI_OPTIONS.find((g) => g.id === gitConfig.gitGui) ?? GIT_GUI_OPTIONS[0];
+        await execFileAsync("open", ["-a", guiDef.appName, path!]);
         if (targetScreen !== undefined) {
           await new Promise((r) => setTimeout(r, 800));
-          await moveAppToScreen("Fork", targetScreen);
+          await moveAppToScreen(guiDef.appName, targetScreen);
         }
         break;
+      }
       case "send-message":
         if (!pid) {
           return NextResponse.json({ error: "Missing pid for send-message action" }, { status: 400 });
@@ -180,6 +258,59 @@ export async function POST(request: Request) {
         }
         await sendMessageToSession(pid, message);
         break;
+      case "send-keystroke":
+        if (!pid) {
+          return NextResponse.json({ error: "Missing pid for send-keystroke action" }, { status: 400 });
+        }
+        if (!keystroke) {
+          return NextResponse.json({ error: "Missing keystroke" }, { status: 400 });
+        }
+        await sendKeystrokeToSession(pid, keystroke);
+        break;
+      case "open-url": {
+        if (!url) {
+          return NextResponse.json({ error: "Missing url" }, { status: 400 });
+        }
+        const browserConfig = await loadConfig();
+        const browserDef = BROWSER_OPTIONS.find((b) => b.id === browserConfig.browser) ?? BROWSER_OPTIONS[0];
+        const escapedUrl = url.replace(/"/g, '\\"');
+
+        // Chromium-based browsers support tab reuse via AppleScript
+        const chromiumBrowsers = ["Google Chrome", "Arc", "Brave Browser", "Microsoft Edge"];
+        if (chromiumBrowsers.includes(browserDef.appName)) {
+          const script = `
+tell application "${browserDef.appName}"
+  set found to false
+  repeat with aWindow in windows
+    set tabIndex to 0
+    repeat with aTab in tabs of aWindow
+      set tabIndex to tabIndex + 1
+      if URL of aTab starts with "${escapedUrl}" then
+        set active tab index of aWindow to tabIndex
+        set index of aWindow to 1
+        activate
+        set found to true
+        exit repeat
+      end if
+    end repeat
+    if found then exit repeat
+  end repeat
+  if not found then
+    activate
+    open location "${escapedUrl}"
+  end if
+end tell`;
+          try {
+            await execFileAsync("osascript", ["-e", script], { timeout: 5000 });
+          } catch {
+            await execFileAsync("open", ["-a", browserDef.appName, url]);
+          }
+        } else {
+          // Safari/Firefox — just open (tab reuse not easily scriptable)
+          await execFileAsync("open", ["-a", browserDef.appName, url]);
+        }
+        break;
+      }
       default:
         return NextResponse.json({ error: "Unknown action" }, { status: 400 });
     }

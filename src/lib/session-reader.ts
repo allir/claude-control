@@ -102,10 +102,29 @@ export function extractBranch(lines: JsonlLine[]): string | null {
   return null;
 }
 
+function summarizeToolInput(name: string, input?: Record<string, unknown>): string | null {
+  if (!input) return null;
+  switch (name) {
+    case "Bash":
+      return typeof input.command === "string" ? input.command.slice(0, 200) : null;
+    case "Edit":
+    case "Read":
+    case "Write":
+      return typeof input.file_path === "string" ? input.file_path : null;
+    case "Glob":
+      return typeof input.pattern === "string" ? input.pattern : null;
+    case "Grep":
+      return typeof input.pattern === "string" ? `/${input.pattern}/` : null;
+    default:
+      return null;
+  }
+}
+
 export function extractPreview(lines: JsonlLine[]): ConversationPreview {
   let lastUserMessage: string | null = null;
   let lastAssistantText: string | null = null;
   let lastToolName: string | null = null;
+  let lastToolInput: string | null = null;
   let messageCount = 0;
 
   for (const line of lines) {
@@ -117,19 +136,21 @@ export function extractPreview(lines: JsonlLine[]): ConversationPreview {
       messageCount++;
     } else if (line.type === "assistant" && Array.isArray(line.message.content)) {
       messageCount++;
-      lastToolName = null; // reset per assistant turn
+      lastToolName = null;
+      lastToolInput = null;
       for (const block of line.message.content) {
         if (block.type === "text" && block.text) {
           lastAssistantText = block.text.slice(0, 200);
         }
         if (block.type === "tool_use" && block.name) {
           lastToolName = block.name;
+          lastToolInput = summarizeToolInput(block.name, block.input);
         }
       }
     }
   }
 
-  return { lastUserMessage, lastAssistantText, lastToolName, messageCount };
+  return { lastUserMessage, lastAssistantText, lastToolName, lastToolInput, messageCount, hasPendingToolUse: false };
 }
 
 export function linesToConversation(lines: JsonlLine[]): ConversationMessage[] {

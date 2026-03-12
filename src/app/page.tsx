@@ -3,9 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSessions } from "@/hooks/useSessions";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { SessionGrid } from "@/components/SessionGrid";
 import { NewSessionModal } from "@/components/NewSessionModal";
+import { KeyboardHints } from "@/components/KeyboardHints";
 import { SessionStatus } from "@/lib/types";
 
 export default function Dashboard() {
@@ -13,6 +15,7 @@ export default function Dashboard() {
   const [targetScreen, setTargetScreen] = useState<number | null>(null);
   const [freshlyChanged, setFreshlyChanged] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<{ repoPath?: string; repoName?: string } | null>(null);
+  const { selectedIndex, selectedSession } = useKeyboardShortcuts({ sessions, targetScreen });
 
   // Track confirmed statuses (only update after a status has been stable for 2 polls)
   const rawStatuses = useRef<Map<string, SessionStatus>>(new Map());
@@ -109,8 +112,13 @@ export default function Dashboard() {
         sessions={sessions}
         targetScreen={targetScreen}
         freshlyChanged={freshlyChanged}
+        selectedIndex={selectedIndex}
         onNewSessionInRepo={handleNewInRepo}
       />
+
+      {sessions.length > 0 && (
+        <KeyboardHints selectedSession={selectedSession} />
+      )}
 
       {modal && (
         <NewSessionModal

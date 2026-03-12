@@ -21,13 +21,12 @@ export function classifyStatus(input: ClassifyInput): SessionStatus {
   const recentWrite = age < WORKING_THRESHOLD_MS;
   const cpuActive = input.cpuPercent > 5;
 
-  // Require BOTH recent JSONL write AND meaningful CPU usage to be "working".
-  // This prevents false positives from incidental file touches (e.g. focusing the terminal).
-  // Exception: high CPU alone (>15%) means Claude is definitely doing work (thinking, before first write).
+  // High CPU means Claude is actively working, regardless of what the JSONL says.
+  // This handles the case where the user approved/rejected a tool but Claude hasn't
+  // written the result to JSONL yet — CPU activity proves it's no longer waiting.
   if ((recentWrite && cpuActive) || input.cpuPercent > 15) return "working";
 
-  // Claude issued a tool_use but no result came back → waiting for user to approve
-  // Only trigger if the session isn't actively working (checked above)
+  // Claude issued a tool_use but no result came back → waiting for user to approve.
   if (input.hasPendingToolUse) return "waiting";
 
   // Claude's last message asked a question / requested confirmation → waiting

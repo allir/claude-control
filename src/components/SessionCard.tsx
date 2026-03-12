@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ClaudeSession, SessionStatus } from "@/lib/types";
 import { StatusBadge } from "./StatusBadge";
@@ -8,6 +8,7 @@ import { GitSummary } from "./GitSummary";
 import { OutputPreview } from "./OutputPreview";
 import { TaskSummaryView } from "./TaskSummaryView";
 import { QuickActions } from "./QuickActions";
+import { QuickReply } from "./QuickReply";
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -48,11 +49,28 @@ const cardStyles: Record<SessionStatus, { border: string; glow: string; accent: 
   },
 };
 
-export function SessionCard({ session, targetScreen, pulse }: { session: ClaudeSession; targetScreen?: number | null; pulse?: boolean }) {
-  const styles = cardStyles[session.status];
+export function SessionCard({ session, targetScreen, pulse, selected, shortcutNumber }: { session: ClaudeSession; targetScreen?: number | null; pulse?: boolean; selected?: boolean; shortcutNumber?: number }) {
+  // Track which prompt was acted on so we can suppress re-showing the same stale prompt
+  const [actedOn, setActedOn] = useState<{ key: string; action: "approve" | "reject" | "reply" } | null>(null);
+
+  const currentPromptKey = `${session.preview.lastToolName}:${session.preview.lastToolInput}:${session.preview.lastAssistantText}`;
+
+  // Clear suppression when prompt changes (new tool use) or status leaves waiting
+  useEffect(() => {
+    if (actedOn && (currentPromptKey !== actedOn.key || session.status !== "waiting")) {
+      setActedOn(null);
+    }
+  }, [currentPromptKey, session.status, actedOn]);
+
+  const isSuppressed = actedOn?.key === currentPromptKey;
+  const showQuickReply = session.status === "waiting" && session.pid && !isSuppressed;
+  const displayStatus = isSuppressed
+    ? (actedOn!.action === "reject" ? "idle" : "working")
+    : session.status;
+  const styles = cardStyles[displayStatus];
   const [cleanupState, setCleanupState] = useState<"idle" | "confirm" | "cleaning" | "done">("idle");
 
-  const canCleanup = session.isWorktree && (session.status === "idle" || session.status === "waiting" || session.status === "finished");
+  const canCleanup = session.isWorktree && (displayStatus === "idle" || displayStatus === "waiting" || displayStatus === "finished");
 
   async function handleCleanup(e: React.MouseEvent) {
     e.preventDefault();
@@ -110,7 +128,7 @@ export function SessionCard({ session, targetScreen, pulse }: { session: ClaudeS
     <div className="relative">
       <Link
         href={`/session/${encodeURIComponent(session.id)}`}
-        className={`group relative block rounded-xl border bg-[#0a0a0f]/80 backdrop-blur-sm p-5 card-hover ${styles.border} ${styles.glow} ${pulse ? "attention-pulse" : ""} ${cleanupState === "cleaning" ? "opacity-50 pointer-events-none" : ""}`}
+        className={`group relative block rounded-xl border bg-[#0a0a0f]/80 backdrop-blur-sm p-5 card-hover ${styles.border} ${styles.glow} ${pulse ? "attention-pulse" : ""} ${selected ? "ring-1 ring-blue-500/50 border-blue-500/30" : ""} ${cleanupState === "cleaning" ? "opacity-50 pointer-events-none" : ""}`}
       >
         {/* Gradient accent at top */}
         <div className={`absolute inset-x-0 top-0 h-24 rounded-t-xl bg-gradient-to-b ${styles.accent} pointer-events-none`} />
@@ -120,6 +138,11 @@ export function SessionCard({ session, targetScreen, pulse }: { session: ClaudeS
           <div className="flex items-start justify-between mb-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
+                {shortcutNumber !== undefined && (
+                  <span className={`shrink-0 w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold font-[family-name:var(--font-geist-mono)] transition-colors ${selected ? "bg-blue-500/20 border border-blue-500/30 text-blue-300" : "bg-white/[0.04] border border-white/[0.06] text-zinc-600"}`}>
+                    {shortcutNumber}
+                  </span>
+                )}
                 <h3 className="font-semibold text-[15px] text-zinc-100 truncate group-hover:text-white transition-colors">
                   {session.repoName || "Unknown"}
                 </h3>
@@ -133,7 +156,7 @@ export function SessionCard({ session, targetScreen, pulse }: { session: ClaudeS
                 {session.workingDirectory.split("/").slice(-3).join("/")}
               </p>
             </div>
-            <StatusBadge status={session.status} />
+            <StatusBadge status={displayStatus} />
           </div>
 
           {/* Git info */}
@@ -155,8 +178,21 @@ export function SessionCard({ session, targetScreen, pulse }: { session: ClaudeS
             )}
           </div>
 
+          {/* Quick reply for waiting sessions */}
+          {showQuickReply && (
+            <QuickReply
+              pid={session.pid!}
+              path={session.workingDirectory}
+              lastAssistantText={session.preview.lastAssistantText}
+              lastToolName={session.preview.lastToolName}
+              lastToolInput={session.preview.lastToolInput}
+              hasPendingToolUse={session.preview.hasPendingToolUse}
+              onActed={(action) => setActedOn({ key: currentPromptKey, action })}
+            />
+          )}
+
           {/* Time ago */}
-          <div className="mb-3">
+          <div className="mb-3 mt-3">
             <span className="text-[11px] text-zinc-600 font-[family-name:var(--font-geist-mono)]">
               {timeAgo(session.lastActivity)}
             </span>
@@ -190,7 +226,7 @@ export function SessionCard({ session, targetScreen, pulse }: { session: ClaudeS
               path={session.workingDirectory}
               pid={session.pid}
               targetScreen={targetScreen}
-              status={session.status}
+              status={displayStatus}
               prUrl={session.prUrl}
               onCleanup={canCleanup ? handleCleanup : undefined}
             />

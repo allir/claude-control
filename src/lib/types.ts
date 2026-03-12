@@ -31,7 +31,9 @@ export interface ConversationPreview {
   lastUserMessage: string | null;
   lastAssistantText: string | null;
   lastToolName: string | null;
+  lastToolInput: string | null;
   messageCount: number;
+  hasPendingToolUse: boolean;
 }
 
 export interface TaskSummary {

@@ -1,37 +1,17 @@
 import { NextResponse } from "next/server";
-import { readdir, stat, readFile, writeFile, mkdir } from "fs/promises";
+import { readdir, stat } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import { loadConfig, saveConfig } from "@/lib/config";
 
 const execFileAsync = promisify(execFile);
-
-const CONFIG_DIR = join(homedir(), ".claude-control");
-const CONFIG_FILE = join(CONFIG_DIR, "config.json");
 
 interface RepoInfo {
   name: string;
   path: string;
   isGitRepo: boolean;
-}
-
-interface Config {
-  codeDirectories: string[];
-}
-
-async function loadConfig(): Promise<Config> {
-  try {
-    const raw = await readFile(CONFIG_FILE, "utf-8");
-    return JSON.parse(raw);
-  } catch {
-    return { codeDirectories: [] };
-  }
-}
-
-async function saveConfig(config: Config): Promise<void> {
-  await mkdir(CONFIG_DIR, { recursive: true });
-  await writeFile(CONFIG_FILE, JSON.stringify(config, null, 2));
 }
 
 async function isGitRepo(dirPath: string): Promise<boolean> {

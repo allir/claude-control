@@ -3,28 +3,9 @@
 import { ClaudeSession, SessionGroup } from "@/lib/types";
 import { SessionCard } from "./SessionCard";
 
-function groupSessions(sessions: ClaudeSession[]): SessionGroup[] {
-  const groups = new Map<string, SessionGroup>();
+import { groupSessions } from "@/lib/group-sessions";
 
-  for (const session of sessions) {
-    // Group key: parentRepo path for worktrees, or own workingDirectory for main repos
-    const repoPath = session.parentRepo || session.workingDirectory;
-    const repoName = repoPath.split("/").filter(Boolean).pop() || repoPath;
-
-    if (!groups.has(repoPath)) {
-      groups.set(repoPath, { repoName, repoPath, sessions: [] });
-    }
-    groups.get(repoPath)!.sessions.push(session);
-  }
-
-  // Sort groups: groups with more sessions first, then alphabetical
-  return Array.from(groups.values()).sort((a, b) => {
-    if (b.sessions.length !== a.sessions.length) return b.sessions.length - a.sessions.length;
-    return a.repoName.localeCompare(b.repoName);
-  });
-}
-
-export function SessionGrid({ sessions, targetScreen, freshlyChanged, onNewSessionInRepo }: { sessions: ClaudeSession[]; targetScreen?: number | null; freshlyChanged?: Set<string>; onNewSessionInRepo?: (repoPath: string, repoName: string) => void }) {
+export function SessionGrid({ sessions, targetScreen, freshlyChanged, selectedIndex, onNewSessionInRepo }: { sessions: ClaudeSession[]; targetScreen?: number | null; freshlyChanged?: Set<string>; selectedIndex?: number | null; onNewSessionInRepo?: (repoPath: string, repoName: string) => void }) {
   if (sessions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-32">
@@ -43,13 +24,37 @@ export function SessionGrid({ sessions, targetScreen, freshlyChanged, onNewSessi
 
   const groups = groupSessions(sessions);
 
+  // Build a flat index map: session id → flat index (for keyboard shortcuts)
+  const flatIndexMap = new Map<string, number>();
+  let flatIdx = 0;
+  for (const group of groups) {
+    for (const session of group.sessions) {
+      flatIndexMap.set(`${session.id}-${session.pid}`, flatIdx);
+      flatIdx++;
+    }
+  }
+
+  const renderCard = (session: ClaudeSession) => {
+    const key = `${session.id}-${session.pid}`;
+    const idx = flatIndexMap.get(key) ?? -1;
+    const isSelected = selectedIndex !== null && selectedIndex !== undefined && idx === selectedIndex;
+    return (
+      <SessionCard
+        key={key}
+        session={session}
+        targetScreen={targetScreen}
+        pulse={freshlyChanged?.has(session.id)}
+        selected={isSelected}
+        shortcutNumber={idx < 9 ? idx + 1 : undefined}
+      />
+    );
+  };
+
   // If there's only one group with one session, skip the grouping chrome
   if (groups.length === 1 && groups[0].sessions.length === 1) {
     return (
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {sessions.map((session) => (
-          <SessionCard key={`${session.id}-${session.pid}`} session={session} targetScreen={targetScreen} pulse={freshlyChanged?.has(session.id)} />
-        ))}
+        {sessions.map(renderCard)}
       </div>
     );
   }
@@ -85,9 +90,7 @@ export function SessionGrid({ sessions, targetScreen, freshlyChanged, onNewSessi
 
           {/* Sessions in this group */}
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {group.sessions.map((session) => (
-              <SessionCard key={`${session.id}-${session.pid}`} session={session} targetScreen={targetScreen} pulse={freshlyChanged?.has(session.id)} />
-            ))}
+            {group.sessions.map(renderCard)}
           </div>
         </div>
       ))}

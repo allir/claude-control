@@ -329,7 +329,7 @@ export function extractTaskSummary(headLines: JsonlLine[]): TaskSummary | null {
         if (inner.type !== "text" || typeof inner.text !== "string") continue;
         try {
           const data = JSON.parse(inner.text as string);
-          if (data.title && data.identifier) {
+          if (data.title && (data.identifier || data.id)) {
             let desc = data.description || null;
             if (desc) {
               desc = desc.replace(/\\n/g, "\n").replace(/\n+/g, " · ").replace(/^\s*\*\s*/g, "").replace(/\s*\*\s*/g, " · ").trim();
@@ -338,7 +338,7 @@ export function extractTaskSummary(headLines: JsonlLine[]): TaskSummary | null {
               title: data.title,
               description: desc,
               source: "linear",
-              ticketId: data.identifier,
+              ticketId: data.identifier || data.id,
               ticketUrl: data.url || null,
             };
           }

@@ -18,6 +18,12 @@ export default function Dashboard() {
   const [targetScreen, setTargetScreen] = useState<number | null>(null);
   const [freshlyChanged, setFreshlyChanged] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<{ repoPath?: string; repoName?: string } | null>(null);
+  // Optimistic approve/reject state: sessionId → { action, timestamp }
+  const [actedSessions, setActedSessions] = useState<Record<string, { action: "approve" | "reject"; at: number }>>({});
+
+  const handleApproveReject = useCallback((sessionId: string, action: "approve" | "reject") => {
+    setActedSessions((prev) => ({ ...prev, [sessionId]: { action, at: Date.now() } }));
+  }, []);
 
   const handleNewGlobal = useCallback(() => {
     setModal({});
@@ -32,7 +38,45 @@ export default function Dashboard() {
     targetScreen,
     onNewGlobal: handleNewGlobal,
     onNewInRepo: handleNewInRepo,
+    onApproveReject: handleApproveReject,
   });
+
+  // Clear optimistic state when backend catches up or after timeout
+  useEffect(() => {
+    const ids = Object.keys(actedSessions);
+    if (ids.length === 0) return;
+
+    const now = Date.now();
+    const toRemove: string[] = [];
+    for (const id of ids) {
+      const entry = actedSessions[id];
+      const session = sessions.find((s) => s.id === id);
+      const elapsed = now - entry.at;
+      // Clear if backend status left "waiting" (and at least 1s has passed) or after 10s
+      if ((!session || (session.status !== "waiting" && elapsed > 1000)) || elapsed >= 10_000) {
+        toRemove.push(id);
+      }
+    }
+    if (toRemove.length > 0) {
+      setActedSessions((prev) => {
+        const next = { ...prev };
+        for (const id of toRemove) delete next[id];
+        return next;
+      });
+    } else {
+      // Schedule cleanup for the nearest timeout
+      const nearest = Math.min(...ids.map((id) => 10_000 - (now - actedSessions[id].at)));
+      const timer = setTimeout(() => setActedSessions((prev) => {
+        const next = { ...prev };
+        const now2 = Date.now();
+        for (const id of Object.keys(next)) {
+          if (now2 - next[id].at >= 10_000) delete next[id];
+        }
+        return next;
+      }), Math.max(nearest, 100));
+      return () => clearTimeout(timer);
+    }
+  }, [sessions, actedSessions]);
   const prStatuses = usePrStatus(sessions);
   const { notifications: notificationsEnabled, notificationSound: soundEnabled } = useSettings();
 
@@ -128,6 +172,8 @@ export default function Dashboard() {
         actionFeedback={actionFeedback}
         prStatuses={prStatuses}
         onNewSessionInRepo={handleNewInRepo}
+        actedSessions={actedSessions}
+        onApproveReject={handleApproveReject}
       />
 
       {sessions.length > 0 && (

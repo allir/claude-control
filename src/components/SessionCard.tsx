@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ClaudeSession, SessionStatus, PrStatus } from "@/lib/types";
 import { StatusBadge } from "./StatusBadge";
 import { GitSummary } from "./GitSummary";
@@ -49,20 +49,8 @@ const cardStyles: Record<SessionStatus, { border: string; glow: string; accent: 
   },
 };
 
-export function SessionCard({ session, targetScreen, pulse, selected, shortcutNumber, actionFeedback, prStatus, onSelect }: { session: ClaudeSession; targetScreen?: number | null; pulse?: boolean; selected?: boolean; shortcutNumber?: number; actionFeedback?: { label: string; color: string } | null; prStatus?: PrStatus | null; onSelect?: () => void }) {
-  // Track which prompt was acted on so we can suppress re-showing the same stale prompt
-  const [actedOn, setActedOn] = useState<{ key: string; action: "approve" | "reject" | "reply" } | null>(null);
-
-  const currentPromptKey = `${session.preview.lastToolName}:${session.preview.lastToolInput}:${session.preview.lastAssistantText}`;
-
-  // Clear suppression when prompt changes (new tool use) or status leaves waiting
-  useEffect(() => {
-    if (actedOn && (currentPromptKey !== actedOn.key || session.status !== "waiting")) {
-      setActedOn(null);
-    }
-  }, [currentPromptKey, session.status, actedOn]);
-
-  const isSuppressed = actedOn?.key === currentPromptKey;
+export function SessionCard({ session, targetScreen, pulse, selected, shortcutNumber, actionFeedback, prStatus, onSelect, actedOn, onApproveReject }: { session: ClaudeSession; targetScreen?: number | null; pulse?: boolean; selected?: boolean; shortcutNumber?: number; actionFeedback?: { label: string; color: string } | null; prStatus?: PrStatus | null; onSelect?: () => void; actedOn?: { action: "approve" | "reject"; at: number }; onApproveReject?: (action: "approve" | "reject") => void }) {
+  const isSuppressed = !!actedOn;
   const showQuickReply = session.status === "waiting" && session.pid && !isSuppressed;
   const displayStatus = isSuppressed
     ? (actedOn!.action === "reject" ? "idle" : "working")
@@ -203,7 +191,7 @@ export function SessionCard({ session, targetScreen, pulse, selected, shortcutNu
               lastToolName={session.preview.lastToolName}
               lastToolInput={session.preview.lastToolInput}
               hasPendingToolUse={session.preview.hasPendingToolUse}
-              onActed={(action) => setActedOn({ key: currentPromptKey, action })}
+              onActed={(action) => { if (action !== "reply") onApproveReject?.(action); }}
             />
           )}
 

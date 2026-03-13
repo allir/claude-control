@@ -10,9 +10,10 @@ interface UseKeyboardShortcutsOptions {
   targetScreen?: number | null;
   onNewGlobal?: () => void;
   onNewInRepo?: (repoPath: string, repoName: string) => void;
+  onApproveReject?: (sessionId: string, action: "approve" | "reject") => void;
 }
 
-export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNewInRepo }: UseKeyboardShortcutsOptions) {
+export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNewInRepo, onApproveReject }: UseKeyboardShortcutsOptions) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ label: string; color: string } | null>(null);
 
@@ -156,6 +157,7 @@ export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNe
         case "a":
           if (selectedSession.status === "waiting" && selectedSession.pid && selectedSession.preview.hasPendingToolUse) {
             e.preventDefault();
+            onApproveReject?.(selectedSession.id, "approve");
             sendKeystroke(selectedSession.pid, "return");
             flash("Approved", "emerald");
           }
@@ -163,6 +165,7 @@ export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNe
         case "x":
           if (selectedSession.status === "waiting" && selectedSession.pid && selectedSession.preview.hasPendingToolUse) {
             e.preventDefault();
+            onApproveReject?.(selectedSession.id, "reject");
             sendKeystroke(selectedSession.pid, "escape");
             flash("Rejected", "red");
           }
@@ -183,7 +186,7 @@ export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNe
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [orderedSessions, selectedSession, openAction, sendKeystroke, flash, onNewGlobal, onNewInRepo]);
+  }, [orderedSessions, selectedSession, openAction, sendKeystroke, flash, onNewGlobal, onNewInRepo, onApproveReject]);
 
   return { selectedIndex, setSelectedIndex, selectedSession, actionFeedback };
 }

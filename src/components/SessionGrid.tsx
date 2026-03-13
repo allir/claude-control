@@ -11,7 +11,7 @@ function prettifyName(name: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function SessionGrid({ sessions, targetScreen, freshlyChanged, selectedIndex, onSelectIndex, actionFeedback, prStatuses, onNewSessionInRepo }: { sessions: ClaudeSession[]; targetScreen?: number | null; freshlyChanged?: Set<string>; selectedIndex?: number | null; onSelectIndex?: (idx: number | null) => void; actionFeedback?: { label: string; color: string } | null; prStatuses?: Record<string, PrStatus | null>; onNewSessionInRepo?: (repoPath: string, repoName: string) => void }) {
+export function SessionGrid({ sessions, targetScreen, freshlyChanged, selectedIndex, onSelectIndex, actionFeedback, prStatuses, onNewSessionInRepo, actedSessions, onApproveReject }: { sessions: ClaudeSession[]; targetScreen?: number | null; freshlyChanged?: Set<string>; selectedIndex?: number | null; onSelectIndex?: (idx: number | null) => void; actionFeedback?: { label: string; color: string } | null; prStatuses?: Record<string, PrStatus | null>; onNewSessionInRepo?: (repoPath: string, repoName: string) => void; actedSessions?: Record<string, { action: "approve" | "reject"; at: number }>; onApproveReject?: (sessionId: string, action: "approve" | "reject") => void }) {
   if (sessions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-32">
@@ -56,6 +56,8 @@ export function SessionGrid({ sessions, targetScreen, freshlyChanged, selectedIn
         actionFeedback={isSelected ? actionFeedback : undefined}
         prStatus={session.prUrl ? prStatuses?.[session.prUrl] ?? undefined : undefined}
         onSelect={() => onSelectIndex?.(isSelected ? null : idx)}
+        actedOn={actedSessions?.[session.id]}
+        onApproveReject={onApproveReject ? (action) => onApproveReject(session.id, action) : undefined}
       />
     );
   };

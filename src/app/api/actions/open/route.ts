@@ -48,38 +48,56 @@ end tell`;
 async function sendKeystrokeToSession(pid: number, keystroke: string): Promise<void> {
   const ttyPath = await getTtyForPid(pid);
 
-  // Map logical keystrokes to AppleScript
+  // For simple keystrokes, use iTerm's write text (no focus needed).
+  // "write text" sends text + newline to the session via the pty master.
+  // For escape, use "write text (ASCII character 27)" to send ESC without newline.
+  const itermWriteMap: Record<string, string> = {
+    return: `write text ""`,           // sends just a newline
+    escape: `write text (ASCII character 27) newline NO`,  // sends ESC byte, no newline
+    y: `write text "y"`,
+    n: `write text "n"`,
+  };
+
+  const writeCmd = itermWriteMap[keystroke];
+  if (writeCmd) {
+    const script = `
+tell application "iTerm"
+  repeat with aWindow in windows
+    repeat with aTab in tabs of aWindow
+      repeat with aSession in sessions of aTab
+        if tty of aSession is "${ttyPath}" then
+          tell aSession
+            ${writeCmd}
+          end tell
+          return
+        end if
+      end repeat
+    end repeat
+  end repeat
+end tell`;
+    await execFileAsync("osascript", ["-e", script], { timeout: 10000 });
+    return;
+  }
+
+  // Arrow keys and other special keys need System Events (requires iTerm focus)
   let asKeystroke: string;
   switch (keystroke) {
-    case "return":
-      asKeystroke = `key code 36`; // Return
-      break;
-    case "escape":
-      asKeystroke = `key code 53`; // Escape
-      break;
-    case "tab":
-      asKeystroke = `key code 48`; // Tab
-      break;
-    case "space":
-      asKeystroke = `keystroke " "`; // Space
-      break;
     case "up":
-      asKeystroke = `key code 126`; // Arrow up
+      asKeystroke = `key code 126`;
       break;
     case "down":
-      asKeystroke = `key code 125`; // Arrow down
+      asKeystroke = `key code 125`;
       break;
-    case "y":
-      asKeystroke = `keystroke "y"`;
+    case "tab":
+      asKeystroke = `key code 48`;
       break;
-    case "n":
-      asKeystroke = `keystroke "n"`;
+    case "space":
+      asKeystroke = `keystroke " "`;
       break;
     default:
       asKeystroke = `keystroke "${keystroke.replace(/"/g, '\\"')}"`;
   }
 
-  // Step 1: Activate iTerm and focus the right session
   const focusScript = `
 tell application "iTerm"
   activate
@@ -98,8 +116,6 @@ tell application "iTerm"
 end tell`;
 
   await execFileAsync("osascript", ["-e", focusScript], { timeout: 5000 });
-
-  // Step 2: Brief delay to ensure iTerm is focused, then send keystroke
   await new Promise((r) => setTimeout(r, 150));
 
   const keystrokeScript = `

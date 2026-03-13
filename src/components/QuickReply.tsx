@@ -39,13 +39,14 @@ export function QuickReply({
 
   const sendKeystroke = async (keystroke: string, label: string) => {
     setSending(label);
+    // Set optimistic state immediately — before the async API call
+    onActed?.(label === "approve" ? "approve" : "reject");
     try {
       await fetch("/api/actions/open", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "send-keystroke", pid, keystroke }),
       });
-      onActed?.(label === "approve" ? "approve" : "reject");
       refreshAfterAction();
     } catch (err) {
       console.error("Failed to send keystroke:", err);

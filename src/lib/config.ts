@@ -10,6 +10,8 @@ export interface AppConfig {
   editor: string;
   gitGui: string;
   browser: string;
+  notifications: boolean;
+  notificationSound: boolean;
 }
 
 export const EDITOR_OPTIONS = [
@@ -43,6 +45,8 @@ const DEFAULT_CONFIG: AppConfig = {
   editor: "vscode",
   gitGui: "fork",
   browser: "chrome",
+  notifications: true,
+  notificationSound: true,
 };
 
 export async function loadConfig(): Promise<AppConfig> {

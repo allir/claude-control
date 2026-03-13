@@ -91,6 +91,25 @@ export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNe
 
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
+      // Tab / Shift+Tab: cycle through sessions
+      if (e.key === "Tab") {
+        if (orderedSessions.length === 0) return;
+        e.preventDefault();
+        setSelectedIndex((prev) => {
+          if (e.shiftKey) {
+            // Shift+Tab: go backward
+            if (prev === null || prev === 0) return orderedSessions.length - 1;
+            return prev - 1;
+          } else {
+            // Tab: go forward
+            if (prev === null) return 0;
+            if (prev >= orderedSessions.length - 1) return 0;
+            return prev + 1;
+          }
+        });
+        return;
+      }
+
       // Number keys 1-9: select session
       if (e.key >= "1" && e.key <= "9") {
         const idx = parseInt(e.key) - 1;

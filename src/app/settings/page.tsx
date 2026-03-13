@@ -15,12 +15,31 @@ interface SettingsData {
     editor: string;
     gitGui: string;
     browser: string;
+    notifications: boolean;
+    notificationSound: boolean;
   };
   options: {
     editors: OptionDef[];
     gitGuis: OptionDef[];
     browsers: OptionDef[];
   };
+}
+
+function Toggle({ enabled, onChange, label, description }: { enabled: boolean; onChange: (v: boolean) => void; label: string; description: string }) {
+  return (
+    <div className="flex items-center justify-between py-4 border-b border-white/[0.04] last:border-0">
+      <div>
+        <h3 className="text-sm font-medium text-zinc-200">{label}</h3>
+        <p className="text-xs text-zinc-500 mt-0.5">{description}</p>
+      </div>
+      <button
+        onClick={() => onChange(!enabled)}
+        className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${enabled ? "bg-emerald-500" : "bg-zinc-700"}`}
+      >
+        <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${enabled ? "translate-x-5" : "translate-x-0"}`} />
+      </button>
+    </div>
+  );
 }
 
 function SettingRow({
@@ -173,6 +192,25 @@ export default function SettingsPage() {
             value={data.config.browser}
             options={data.options.browsers}
             onChange={(browser) => save({ browser })}
+          />
+        </div>
+      </section>
+
+      {/* Notifications section */}
+      <section className="mb-10">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">Notifications</h2>
+        <div className="rounded-xl border border-white/[0.06] bg-[#0a0a0f]/80 px-5">
+          <Toggle
+            label="Desktop Notifications"
+            description="Show a macOS notification when a session finishes working"
+            enabled={data.config.notifications ?? true}
+            onChange={(notifications) => save({ notifications } as Partial<SettingsData["config"]>)}
+          />
+          <Toggle
+            label="Notification Sound"
+            description="Play a chime when a session finishes working"
+            enabled={data.config.notificationSound ?? true}
+            onChange={(notificationSound) => save({ notificationSound } as Partial<SettingsData["config"]>)}
           />
         </div>
       </section>

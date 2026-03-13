@@ -3,8 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSessions } from "@/hooks/useSessions";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
+import { useDesktopNotification } from "@/hooks/useDesktopNotification";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { usePrStatus } from "@/hooks/usePrStatus";
+import { useSettings } from "@/hooks/useSettings";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { SessionGrid } from "@/components/SessionGrid";
 import { NewSessionModal } from "@/components/NewSessionModal";
@@ -32,12 +34,14 @@ export default function Dashboard() {
     onNewInRepo: handleNewInRepo,
   });
   const prStatuses = usePrStatus(sessions);
+  const { notifications: notificationsEnabled, notificationSound: soundEnabled } = useSettings();
 
   // Track confirmed statuses (only update after a status has been stable for 2 polls)
   const rawStatuses = useRef<Map<string, SessionStatus>>(new Map());
   const confirmedStatuses = useRef<Map<string, SessionStatus>>(new Map());
   const pollCount = useRef<Map<string, number>>(new Map());
   const playChime = useNotificationSound();
+  const sendNotification = useDesktopNotification();
 
   // Persist screen preference
   useEffect(() => {
@@ -78,11 +82,17 @@ export default function Dashboard() {
     }
 
     if (changed.size > 0) {
-      playChime();
+      if (soundEnabled) playChime();
+      if (notificationsEnabled) {
+        changed.forEach((id) => {
+          const session = sessions.find((s) => s.id === id);
+          if (session) sendNotification(session, session.status);
+        });
+      }
       setFreshlyChanged(changed);
       setTimeout(() => setFreshlyChanged(new Set()), 2000);
     }
-  }, [sessions, playChime]);
+  }, [sessions, playChime, sendNotification, soundEnabled, notificationsEnabled]);
 
   return (
     <>

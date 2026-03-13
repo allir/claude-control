@@ -30,6 +30,8 @@ export async function PUT(request: Request) {
       editor: body.editor ?? current.editor,
       gitGui: body.gitGui ?? current.gitGui,
       browser: body.browser ?? current.browser,
+      notifications: body.notifications ?? current.notifications,
+      notificationSound: body.notificationSound ?? current.notificationSound,
     };
 
     await saveConfig(updated);

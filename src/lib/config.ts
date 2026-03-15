@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
+import type { TerminalApp, TerminalOpenIn } from "./terminal/types";
 
 const CONFIG_DIR = join(homedir(), ".claude-control");
 const CONFIG_FILE = join(CONFIG_DIR, "config.json");
@@ -12,6 +13,10 @@ export interface AppConfig {
   browser: string;
   notifications: boolean;
   notificationSound: boolean;
+  terminalApp: TerminalApp;
+  terminalOpenIn: TerminalOpenIn;
+  terminalUseTmux: boolean;
+  terminalTmuxSession: string;
 }
 
 export const EDITOR_OPTIONS = [
@@ -40,6 +45,20 @@ export const BROWSER_OPTIONS = [
   { id: "edge", label: "Microsoft Edge", appName: "Microsoft Edge" },
 ];
 
+export const TERMINAL_APP_OPTIONS = [
+  { id: "iterm", label: "iTerm2" },
+  { id: "terminal-app", label: "Terminal" },
+  { id: "ghostty", label: "Ghostty" },
+  { id: "kitty", label: "kitty" },
+  { id: "wezterm", label: "WezTerm" },
+  { id: "alacritty", label: "Alacritty" },
+];
+
+export const TERMINAL_OPEN_IN_OPTIONS = [
+  { id: "tab", label: "New tab" },
+  { id: "window", label: "New window" },
+];
+
 const DEFAULT_CONFIG: AppConfig = {
   codeDirectories: [],
   editor: "vscode",
@@ -47,6 +66,10 @@ const DEFAULT_CONFIG: AppConfig = {
   browser: "chrome",
   notifications: true,
   notificationSound: true,
+  terminalApp: "iterm",
+  terminalOpenIn: "tab",
+  terminalUseTmux: false,
+  terminalTmuxSession: "",
 };
 
 export async function loadConfig(): Promise<AppConfig> {

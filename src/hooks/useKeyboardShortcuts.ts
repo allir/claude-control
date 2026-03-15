@@ -149,8 +149,8 @@ export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNe
         case "enter":
           if (selectedSession.pid) {
             e.preventDefault();
-            openAction("iterm", selectedSession);
-            flash("iTerm");
+            openAction("focus", selectedSession);
+            flash("Terminal");
           }
           break;
         case "e":

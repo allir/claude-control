@@ -40,7 +40,7 @@ export function KeyboardHints({ selectedSession, actionFeedback }: { selectedSes
               {selectedSession ? (
                 <>
                   <span className="w-px h-3 bg-zinc-800" />
-                  <Hint keys="Enter" label="iTerm" />
+                  <Hint keys="Enter" label="terminal" />
                   <Hint keys="E" label="editor" />
                   <Hint keys="G" label="git" />
                   <Hint keys="F" label="finder" />

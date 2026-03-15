@@ -117,7 +117,7 @@ export function SessionRow({
       )}
 
       {/* Pending tool context + Approve/Reject for waiting sessions */}
-      {isWaiting && session.preview.hasPendingToolUse && onApproveReject && (
+      {isWaiting && session.hasPendingToolUse && onApproveReject && (
         <div className="shrink-0 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           {session.preview.lastToolName && (
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/[0.06] border border-blue-500/[0.12] max-w-[320px]">

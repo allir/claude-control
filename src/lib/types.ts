@@ -24,6 +24,7 @@ export interface ClaudeSession {
   git: GitSummary | null;
   preview: ConversationPreview;
   taskSummary: TaskSummary | null;
+  hasPendingToolUse: boolean;
   jsonlPath: string | null;
   prUrl: string | null;
 }
@@ -43,7 +44,6 @@ export interface ConversationPreview {
   lastToolName: string | null;
   lastToolInput: string | null;
   messageCount: number;
-  hasPendingToolUse: boolean;
 }
 
 export interface TaskSummary {

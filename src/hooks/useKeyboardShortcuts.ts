@@ -169,7 +169,7 @@ export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNe
           flash("Finder");
           break;
         case "a":
-          if (selectedSession.status === "waiting" && selectedSession.pid && selectedSession.preview.hasPendingToolUse) {
+          if (selectedSession.status === "waiting" && selectedSession.pid && selectedSession.hasPendingToolUse) {
             e.preventDefault();
             onApproveReject?.(selectedSession.id, "approve");
             sendKeystroke(selectedSession.pid, "return");
@@ -177,7 +177,7 @@ export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNe
           }
           break;
         case "x":
-          if (selectedSession.status === "waiting" && selectedSession.pid && selectedSession.preview.hasPendingToolUse) {
+          if (selectedSession.status === "waiting" && selectedSession.pid && selectedSession.hasPendingToolUse) {
             e.preventDefault();
             onApproveReject?.(selectedSession.id, "reject");
             sendKeystroke(selectedSession.pid, "escape");

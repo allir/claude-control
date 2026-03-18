@@ -21,6 +21,7 @@ import {
 } from "./session-reader";
 import { getGitSummary, getGitDiff, getMainWorktreePath, getPrUrl } from "./git-info";
 import { classifyStatus } from "./status-classifier";
+import { readAllHookStatuses, HookStatus } from "./hooks-reader";
 import { SessionDetail } from "./types";
 
 async function findLatestJsonl(projectDir: string): Promise<string | null> {
@@ -47,7 +48,10 @@ async function findLatestJsonl(projectDir: string): Promise<string | null> {
   }
 }
 
-async function buildSession(info: ProcessInfo): Promise<ClaudeSession | null> {
+async function buildSession(
+  info: ProcessInfo,
+  hookStatuses?: Map<string, HookStatus>,
+): Promise<ClaudeSession | null> {
   if (!info.workingDirectory) return null;
 
   const projectDir = workingDirToProjectDir(info.workingDirectory);
@@ -93,14 +97,26 @@ async function buildSession(info: ProcessInfo): Promise<ClaudeSession | null> {
   const isWorktree = mainWorktreePath !== null && mainWorktreePath !== info.workingDirectory;
   const parentRepo = isWorktree ? mainWorktreePath : null;
 
-  const status = classifyStatus({
-    pid: info.pid,
-    jsonlMtime: mtime,
-    cpuPercent: info.cpuPercent,
-    hasError,
-    isAskingForInput: askingForInput,
-    hasPendingToolUse: pendingToolUse,
-  });
+  // Use hook-based status if available for this session, otherwise fall back to heuristic.
+  // Hook events are authoritative — trust them directly. After a PermissionRequest, the
+  // status stays "waiting" until the next hook event (Stop, UserPromptSubmit, etc.).
+  const hookStatus = hookStatuses?.get(sessionId);
+  let status: ClaudeSession["status"];
+  if (hookStatus) {
+    status = hookStatus.status;
+    if (hookStatus.event === "PermissionRequest" && status === "waiting") {
+      pendingToolUse = true;
+    }
+  } else {
+    status = classifyStatus({
+      pid: info.pid,
+      jsonlMtime: mtime,
+      cpuPercent: info.cpuPercent,
+      hasError,
+      isAskingForInput: askingForInput,
+      hasPendingToolUse: pendingToolUse,
+    });
+  }
 
   return {
     id: sessionId,
@@ -125,14 +141,17 @@ async function buildSession(info: ProcessInfo): Promise<ClaudeSession | null> {
 export async function discoverSessions(): Promise<ClaudeSession[]> {
   // Single ps call builds the full tree (pid, ppid, %cpu, comm) —
   // extract claude PIDs and their CPU% from it, then one lsof for cwds
-  const processTree = await buildProcessTree();
+  const [processTree, hookStatuses] = await Promise.all([
+    buildProcessTree(),
+    readAllHookStatuses(),
+  ]);
   const pids = findClaudePidsFromTree(processTree);
   const processInfos = await getAllProcessInfos(pids, processTree);
 
   const results = await Promise.all(
     processInfos
       .filter((info) => info.workingDirectory !== null)
-      .map((info) => buildSession(info))
+      .map((info) => buildSession(info, hookStatuses))
   );
 
   return results.filter((s): s is ClaudeSession => s !== null);

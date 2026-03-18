@@ -16,7 +16,7 @@ import { SessionStatus } from "@/lib/types";
 import Link from "next/link";
 
 export default function Dashboard() {
-  const { sessions, isLoading, error } = useSessions();
+  const { sessions, isLoading, error, hooksActive } = useSessions();
   const [targetScreen, setTargetScreen] = useState<number | null>(null);
   const [freshlyChanged, setFreshlyChanged] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<{ repoPath?: string; repoName?: string } | null>(null);
@@ -38,12 +38,18 @@ export default function Dashboard() {
     setModal({ repoPath, repoName });
   }, []);
 
+  const handleViewModeChange = useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+    localStorage.setItem("viewMode", mode);
+  }, []);
+
   const { selectedIndex, setSelectedIndex, selectedSession, actionFeedback } = useKeyboardShortcuts({
     sessions,
     targetScreen,
     onNewGlobal: handleNewGlobal,
     onNewInRepo: handleNewInRepo,
     onApproveReject: handleApproveReject,
+    onViewModeChange: handleViewModeChange,
   });
 
   // Clear optimistic state when backend catches up or after timeout
@@ -83,14 +89,14 @@ export default function Dashboard() {
     }
   }, [sessions, actedSessions]);
   const prStatuses = usePrStatus(sessions);
-  const { notifications: notificationsEnabled, notificationSound: soundEnabled } = useSettings();
+  const { notifications: notificationsEnabled, notificationSound: soundEnabled, alwaysNotify } = useSettings();
 
   // Track confirmed statuses (only update after a status has been stable for 2 polls)
   const rawStatuses = useRef<Map<string, SessionStatus>>(new Map());
   const confirmedStatuses = useRef<Map<string, SessionStatus>>(new Map());
   const pollCount = useRef<Map<string, number>>(new Map());
   const playChime = useNotificationSound();
-  const sendNotification = useDesktopNotification();
+  const sendNotification = useDesktopNotification(alwaysNotify);
 
   // Persist preferences
   useEffect(() => {
@@ -102,40 +108,52 @@ export default function Dashboard() {
     if (savedHints === "false") setShowKeyboardHints(false);
   }, []);
 
-  const handleViewModeChange = useCallback((mode: ViewMode) => {
-    setViewMode(mode);
-    localStorage.setItem("viewMode", mode);
-  }, []);
-
-  // Detect status transitions → sound + pulse (with debounce)
+  // Detect status transitions → sound + pulse
+  // With hooks: statuses are authoritative, so react immediately.
+  // Without hooks: require 2 consecutive polls with the same status to confirm (debounce flicker).
   useEffect(() => {
     if (sessions.length === 0) return;
 
     const changed = new Set<string>();
 
     for (const session of sessions) {
-      const prevRaw = rawStatuses.current.get(session.id);
-      const count = pollCount.current.get(session.id) ?? 0;
-
-      if (prevRaw === session.status) {
-        pollCount.current.set(session.id, count + 1);
-      } else {
-        pollCount.current.set(session.id, 1);
-      }
-      rawStatuses.current.set(session.id, session.status);
-
-      const stableCount = pollCount.current.get(session.id) ?? 0;
-      if (stableCount >= 2) {
-        const prevConfirmed = confirmedStatuses.current.get(session.id);
-        if (prevConfirmed && prevConfirmed !== session.status) {
-          if (
-            prevConfirmed === "working" &&
-            (session.status === "waiting" || session.status === "idle" || session.status === "finished")
-          ) {
-            changed.add(session.id);
-          }
+      if (hooksActive) {
+        // Hooks are authoritative — no debounce needed.
+        // Notify on any transition TO waiting/idle/finished (hooks are fast enough
+        // that "working" may be too brief to ever appear in a poll).
+        const prev = confirmedStatuses.current.get(session.id);
+        if (
+          prev && prev !== session.status &&
+          (session.status === "waiting" || session.status === "idle" || session.status === "finished")
+        ) {
+          changed.add(session.id);
         }
         confirmedStatuses.current.set(session.id, session.status);
+      } else {
+        // Heuristic fallback — require 2 stable polls before confirming
+        const prevRaw = rawStatuses.current.get(session.id);
+        const count = pollCount.current.get(session.id) ?? 0;
+
+        if (prevRaw === session.status) {
+          pollCount.current.set(session.id, count + 1);
+        } else {
+          pollCount.current.set(session.id, 1);
+        }
+        rawStatuses.current.set(session.id, session.status);
+
+        const stableCount = pollCount.current.get(session.id) ?? 0;
+        if (stableCount >= 2) {
+          const prevConfirmed = confirmedStatuses.current.get(session.id);
+          if (prevConfirmed && prevConfirmed !== session.status) {
+            if (
+              prevConfirmed === "working" &&
+              (session.status === "waiting" || session.status === "idle" || session.status === "finished")
+            ) {
+              changed.add(session.id);
+            }
+          }
+          confirmedStatuses.current.set(session.id, session.status);
+        }
       }
     }
 
@@ -150,7 +168,7 @@ export default function Dashboard() {
       setFreshlyChanged(changed);
       setTimeout(() => setFreshlyChanged(new Set()), 2000);
     }
-  }, [sessions, playChime, sendNotification, soundEnabled, notificationsEnabled]);
+  }, [sessions, hooksActive, playChime, sendNotification, soundEnabled, notificationsEnabled]);
 
   return (
     <>

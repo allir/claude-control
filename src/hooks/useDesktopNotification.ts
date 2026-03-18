@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef } from "react";
 import { ClaudeSession } from "@/lib/types";
 
-function getStatusLabel(status: string): string {
-  switch (status) {
-    case "waiting": return "needs your attention";
-    case "idle": return "finished working";
-    case "finished": return "session ended";
-    default: return status;
-  }
+const STATUS_ACTION: Record<string, string> = {
+  waiting: "Waiting for input",
+  idle: "Done",
+  finished: "Session ended",
+};
+
+function getTitle(session: ClaudeSession, newStatus: string): string {
+  const action = STATUS_ACTION[newStatus] ?? newStatus;
+  const repo = getRepoLabel(session);
+  return `${action} — ${repo}`;
 }
 
 function getRepoLabel(session: ClaudeSession): string {
@@ -17,19 +20,31 @@ function getRepoLabel(session: ClaudeSession): string {
   return session.repoName || "Session";
 }
 
-function getBody(session: ClaudeSession): string {
-  const parts: string[] = [];
-  if (session.branch) parts.push(session.branch);
-  if (session.taskSummary?.title) {
-    parts.push(session.taskSummary.title);
-  } else if (session.preview.lastAssistantText) {
-    parts.push(session.preview.lastAssistantText.slice(0, 80));
+function getBody(session: ClaudeSession, newStatus: string): string {
+  const lines: string[] = [];
+
+  if (session.branch) {
+    lines.push(session.branch);
   }
-  return parts.join(" \u2022 ");
+
+  if (session.taskSummary?.title) {
+    lines.push(session.taskSummary.title);
+  } else if (session.preview.lastAssistantText) {
+    lines.push(session.preview.lastAssistantText.slice(0, 100));
+  }
+
+  if (newStatus === "waiting" && session.preview.lastTools.length > 0) {
+    const tool = session.preview.lastTools[session.preview.lastTools.length - 1];
+    lines.push(tool.description || tool.name);
+  }
+
+  return lines.join("\n");
 }
 
-export function useDesktopNotification() {
+export function useDesktopNotification(alwaysNotify: boolean = false) {
   const permissionGranted = useRef(false);
+  const alwaysNotifyRef = useRef(alwaysNotify);
+  alwaysNotifyRef.current = alwaysNotify;
 
   useEffect(() => {
     if ("Notification" in window) {
@@ -47,11 +62,11 @@ export function useDesktopNotification() {
     if (!permissionGranted.current) return;
     if (!("Notification" in window)) return;
 
-    // Don't notify if the window is focused — user can already see the dashboard
-    if (document.hasFocus()) return;
+    // Don't notify if the window is focused — unless alwaysNotify is on
+    if (document.hasFocus() && !alwaysNotifyRef.current) return;
 
-    const title = `${getRepoLabel(session)} ${getStatusLabel(newStatus)}`;
-    const body = getBody(session);
+    const title = getTitle(session, newStatus);
+    const body = getBody(session, newStatus);
 
     const notification = new Notification(title, {
       body: body || undefined,

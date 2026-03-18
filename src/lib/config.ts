@@ -13,6 +13,7 @@ export interface AppConfig {
   browser: string;
   notifications: boolean;
   notificationSound: boolean;
+  alwaysNotify: boolean;
   terminalApp: TerminalApp;
   terminalOpenIn: TerminalOpenIn;
   terminalUseTmux: boolean;
@@ -81,6 +82,7 @@ const DEFAULT_CONFIG: AppConfig = {
   browser: "chrome",
   notifications: true,
   notificationSound: true,
+  alwaysNotify: false,
   terminalApp: "terminal-app",
   terminalOpenIn: "tab",
   terminalUseTmux: false,

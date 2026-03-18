@@ -78,6 +78,7 @@ export async function PUT(request: Request) {
       browser: body.browser ?? current.browser,
       notifications: body.notifications ?? current.notifications,
       notificationSound: body.notificationSound ?? current.notificationSound,
+      alwaysNotify: body.alwaysNotify ?? current.alwaysNotify,
       terminalApp: body.terminalApp ?? current.terminalApp,
       terminalOpenIn: body.terminalOpenIn ?? current.terminalOpenIn,
       terminalUseTmux: body.terminalUseTmux ?? current.terminalUseTmux,

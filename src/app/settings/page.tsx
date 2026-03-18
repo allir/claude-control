@@ -21,6 +21,7 @@ interface SettingsData {
     browser: string;
     notifications: boolean;
     notificationSound: boolean;
+    alwaysNotify: boolean;
     terminalApp: string;
     terminalOpenIn: string;
     terminalUseTmux: boolean;
@@ -312,6 +313,12 @@ export default function SettingsPage() {
             description="Play a chime when a session finishes working"
             enabled={data.config.notificationSound ?? true}
             onChange={(notificationSound) => save({ notificationSound })}
+          />
+          <Toggle
+            label="Always Send Notification"
+            description="Show notifications even when the app is focused"
+            enabled={data.config.alwaysNotify ?? false}
+            onChange={(alwaysNotify) => save({ alwaysNotify })}
           />
         </div>
       </section>

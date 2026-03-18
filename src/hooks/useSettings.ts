@@ -9,6 +9,7 @@ interface SettingsResponse {
   config: {
     notifications: boolean;
     notificationSound: boolean;
+    alwaysNotify: boolean;
     editor: string;
     gitGui: string;
   };
@@ -34,6 +35,7 @@ export function useSettings() {
   return {
     notifications: data?.config?.notifications ?? true,
     notificationSound: data?.config?.notificationSound ?? true,
+    alwaysNotify: data?.config?.alwaysNotify ?? false,
     editorAvailable: isAppAvailable(data?.options?.editors, data?.config?.editor),
     gitGuiAvailable: isAppAvailable(data?.options?.gitGuis, data?.config?.gitGui),
   };

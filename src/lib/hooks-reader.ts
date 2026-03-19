@@ -21,8 +21,10 @@ const EVENT_TO_STATUS: Record<string, SessionStatus> = {
   PostToolUseFailure: "working",
   Stop: "idle",
   SessionStart: "idle",
-  PermissionRequest: "waiting",
   SessionEnd: "finished",
+  // PermissionRequest is intentionally excluded — it fires for auto-approved
+  // tools too, causing false "waiting" states. The JSONL heuristic handles
+  // waiting detection via hasPendingToolUse + APPROVAL_SETTLE_MS instead.
 };
 
 export function classifyStatusFromHook(eventName: string): SessionStatus | null {

@@ -104,31 +104,22 @@ async function buildSession(
   const isWorktree = mainWorktreePath !== null && mainWorktreePath !== info.workingDirectory;
   const parentRepo = isWorktree ? mainWorktreePath : null;
 
-  // Use hook-based status if available, otherwise fall back to heuristic.
-  // Hook events are authoritative — trust them directly. After a PermissionRequest, the
-  // status stays "waiting" until the next hook event (Stop, UserPromptSubmit, etc.).
-  let status: ClaudeSession["status"];
-  if (hookStatus) {
-    if (hookStatus.status === "waiting" && info.cpuPercent > 15) {
-      // CPU > 15% means the tool was approved and is executing
-      // (a process sitting at a permission prompt has ~0% CPU).
-      status = "working";
-    } else {
-      status = hookStatus.status;
-      if (hookStatus.event === "PermissionRequest" && status === "waiting") {
-        pendingToolUse = true;
-      }
-    }
-  } else {
-    status = classifyStatus({
-      pid: info.pid,
-      jsonlMtime: mtime,
-      cpuPercent: info.cpuPercent,
-      hasError,
-      isAskingForInput: askingForInput,
-      hasPendingToolUse: pendingToolUse,
-    });
-  }
+  // Hooks provide authoritative working/idle/finished status.
+  // "Waiting" is detected by the heuristic classifier via JSONL (hasPendingToolUse +
+  // APPROVAL_SETTLE_MS), because PermissionRequest hooks fire for auto-approved tools too.
+  // If the hook status is available (and not null, meaning PermissionRequest was ignored),
+  // use it; otherwise fall back to the heuristic classifier.
+  const useHook = hookStatus && hookStatus.status !== null;
+  const status = useHook
+    ? hookStatus.status
+    : classifyStatus({
+        pid: info.pid,
+        jsonlMtime: mtime,
+        cpuPercent: info.cpuPercent,
+        hasError,
+        isAskingForInput: askingForInput,
+        hasPendingToolUse: pendingToolUse,
+      });
 
   return {
     id: sessionId,

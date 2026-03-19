@@ -132,6 +132,10 @@ export default function Dashboard() {
     if (savedHints === "false") setShowKeyboardHints(false);
   }, []);
 
+  // Pending "idle" notifications — delayed to avoid false notifications from brief
+  // idle gaps between turns (e.g. Stop → UserPromptSubmit within seconds).
+  const pendingIdleNotifications = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
   // Detect status transitions → sound + pulse
   // With hooks: statuses are authoritative, so react immediately.
   // Without hooks: require 2 consecutive polls with the same status to confirm (debounce flicker).
@@ -142,15 +146,38 @@ export default function Dashboard() {
 
     for (const session of sessions) {
       if (hooksActive) {
-        // Hooks are authoritative — no debounce needed.
-        // Notify on any transition TO waiting/idle/finished (hooks are fast enough
-        // that "working" may be too brief to ever appear in a poll).
         const prev = confirmedStatuses.current.get(session.id);
+
+        // If session returned to "working", cancel any pending idle notification
+        if (session.status === "working" && pendingIdleNotifications.current.has(session.id)) {
+          clearTimeout(pendingIdleNotifications.current.get(session.id));
+          pendingIdleNotifications.current.delete(session.id);
+        }
+
         if (
           prev && prev !== session.status &&
           (session.status === "waiting" || session.status === "idle" || session.status === "finished")
         ) {
-          changed.add(session.id);
+          // "idle" gets a delayed notification to avoid false triggers between turns
+          if (session.status === "idle") {
+            if (!pendingIdleNotifications.current.has(session.id)) {
+              const sid = session.id;
+              const timer = setTimeout(() => {
+                pendingIdleNotifications.current.delete(sid);
+                if (soundEnabled) playChime();
+                if (notificationsEnabled) {
+                  const s = sessions.find((x) => x.id === sid);
+                  if (s) sendNotification(s, s.status);
+                }
+                setFreshlyChanged(new Set([sid]));
+                setTimeout(() => setFreshlyChanged(new Set()), 2000);
+              }, 6000);
+              pendingIdleNotifications.current.set(sid, timer);
+            }
+          } else {
+            // "waiting" and "finished" notify immediately
+            changed.add(session.id);
+          }
         }
         confirmedStatuses.current.set(session.id, session.status);
       } else {

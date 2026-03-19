@@ -1,50 +1,74 @@
 import { useCallback, useEffect, useRef } from "react";
 import { ClaudeSession } from "@/lib/types";
 
-const STATUS_ACTION: Record<string, string> = {
-  waiting: "Waiting for input",
-  idle: "Done",
-  finished: "Session ended",
+const STATUS_COLORS: Record<string, string> = {
+  waiting: "#3b82f6",  // blue-500
+  idle: "#f59e0b",     // amber-500
+  finished: "#71717a", // zinc-500
 };
 
-function getTitle(session: ClaudeSession, newStatus: string): string {
-  const action = STATUS_ACTION[newStatus] ?? newStatus;
-  const repo = getRepoLabel(session);
-  return `${action} — ${repo}`;
+const STATUS_LABEL: Record<string, string> = {
+  waiting: "",
+  idle: "",
+  finished: "",
+};
+
+// Generate a colored circle icon as a blob URL (cached per color)
+const iconCache = new Map<string, string>();
+function getStatusIcon(status: string): string | undefined {
+  const color = STATUS_COLORS[status];
+  if (!color) return undefined;
+  if (iconCache.has(color)) return iconCache.get(color);
+
+  try {
+    const size = 64;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return undefined;
+
+    // Glow
+    const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    gradient.addColorStop(0, color);
+    gradient.addColorStop(0.5, color + "88");
+    gradient.addColorStop(1, color + "00");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, size, size);
+
+    // Solid dot
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 5, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    const url = canvas.toDataURL("image/png");
+    iconCache.set(color, url);
+    return url;
+  } catch {
+    return undefined;
+  }
+}
+
+function prettifyName(name: string): string {
+  return name
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function getRepoLabel(session: ClaudeSession): string {
-  if (session.isWorktree && session.parentRepo) {
-    return session.parentRepo.split("/").filter(Boolean).pop() || session.repoName || "Session";
-  }
-  return session.repoName || "Session";
+  const raw = session.isWorktree && session.parentRepo
+    ? session.parentRepo.split("/").filter(Boolean).pop() || session.repoName || "Session"
+    : session.repoName || "Session";
+  return prettifyName(raw);
 }
 
-function getBody(session: ClaudeSession, newStatus: string): string {
-  const lines: string[] = [];
-
-  if (session.branch) {
-    lines.push(session.branch);
-  }
-
-  if (session.taskSummary?.title) {
-    lines.push(session.taskSummary.title);
-  } else if (session.preview.lastAssistantText) {
-    lines.push(session.preview.lastAssistantText.slice(0, 100));
-  }
-
-  if (newStatus === "waiting" && session.preview.lastTools.length > 0) {
-    const tool = session.preview.lastTools[session.preview.lastTools.length - 1];
-    lines.push(tool.description || tool.name);
-  }
-
-  return lines.join("\n");
-}
-
-export function useDesktopNotification(alwaysNotify: boolean = false) {
+export function useDesktopNotification(alwaysNotify: boolean = false, onSelectSession?: (sessionId: string) => void) {
   const permissionGranted = useRef(false);
   const alwaysNotifyRef = useRef(alwaysNotify);
   alwaysNotifyRef.current = alwaysNotify;
+  const onSelectRef = useRef(onSelectSession);
+  onSelectRef.current = onSelectSession;
 
   useEffect(() => {
     if ("Notification" in window) {
@@ -65,22 +89,25 @@ export function useDesktopNotification(alwaysNotify: boolean = false) {
     // Don't notify if the window is focused — unless alwaysNotify is on
     if (document.hasFocus() && !alwaysNotifyRef.current) return;
 
-    const title = getTitle(session, newStatus);
-    const body = getBody(session, newStatus);
+    const repo = getRepoLabel(session);
+    const icon = getStatusIcon(newStatus);
+    const parts: string[] = [];
+    if (session.branch) parts.push(session.branch);
+    if (session.taskSummary?.title) parts.push(session.taskSummary.title);
+    const body = parts.join("\n") || undefined;
 
-    const notification = new Notification(title, {
-      body: body || undefined,
-      silent: true, // We handle our own sound
-      icon: "/icon.png",
+    const notification = new Notification(repo, {
+      body,
+      silent: true,
+      icon,
     });
 
-    // Auto-close after 5 seconds
     setTimeout(() => notification.close(), 5000);
 
-    // Focus the window when clicked
     notification.onclick = () => {
       window.focus();
       notification.close();
+      onSelectRef.current?.(session.id);
     };
   }, []);
 

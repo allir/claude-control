@@ -63,13 +63,14 @@ const PR_URL_TTL_MS = 60_000;       // 60s for known PR URLs
 const PR_URL_NULL_TTL_MS = 30_000;  // 30s for "no PR" results
 
 export async function getPrUrl(cwd: string, branch: string): Promise<string | null> {
+  const cacheKey = `${cwd}::${branch}`;
   const now = Date.now();
   for (const [key, entry] of prUrlCache) {
     const ttl = entry.url ? PR_URL_TTL_MS : PR_URL_NULL_TTL_MS;
     if (now - entry.ts >= ttl) prUrlCache.delete(key);
   }
 
-  const cached = prUrlCache.get(branch);
+  const cached = prUrlCache.get(cacheKey);
   if (cached) return cached.url;
 
   try {
@@ -78,10 +79,10 @@ export async function getPrUrl(cwd: string, branch: string): Promise<string | nu
       timeout: 5000,
     });
     const url = stdout.trim() || null;
-    prUrlCache.set(branch, { url, ts: Date.now() });
+    prUrlCache.set(cacheKey, { url, ts: Date.now() });
     return url;
   } catch {
-    prUrlCache.set(branch, { url: null, ts: Date.now() });
+    prUrlCache.set(cacheKey, { url: null, ts: Date.now() });
     return null;
   }
 }

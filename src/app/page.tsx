@@ -13,6 +13,7 @@ import { SessionGrid } from "@/components/SessionGrid";
 import { NewSessionModal } from "@/components/NewSessionModal";
 import { KeyboardHints } from "@/components/KeyboardHints";
 import { SessionStatus } from "@/lib/types";
+import { flattenGroupedSessions } from "@/lib/group-sessions";
 import Link from "next/link";
 
 export default function Dashboard() {
@@ -120,7 +121,12 @@ export default function Dashboard() {
   const confirmedStatuses = useRef<Map<string, SessionStatus>>(new Map());
   const pollCount = useRef<Map<string, number>>(new Map());
   const playChime = useNotificationSound();
-  const sendNotification = useDesktopNotification(alwaysNotify);
+  const handleNotificationClick = useCallback((sessionId: string) => {
+    const ordered = flattenGroupedSessions(sessions);
+    const idx = ordered.findIndex((s) => s.id === sessionId);
+    if (idx >= 0) setSelectedIndex(idx);
+  }, [sessions, setSelectedIndex]);
+  const sendNotification = useDesktopNotification(alwaysNotify, handleNotificationClick);
 
   // Persist preferences
   useEffect(() => {

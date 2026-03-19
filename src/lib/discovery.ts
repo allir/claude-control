@@ -103,28 +103,15 @@ async function buildSession(
   const hookStatus = hookStatuses?.get(sessionId);
   let status: ClaudeSession["status"];
   if (hookStatus) {
-    if (hookStatus.status === "waiting") {
+    if (hookStatus.status === "waiting" && info.cpuPercent > 15) {
       // CPU > 15% means the tool was approved and is executing
       // (a process sitting at a permission prompt has ~0% CPU).
-      if (info.cpuPercent > 15) {
-        status = "working";
-      // Hook is old and no activity — the tool was interrupted or approved long ago.
-      // Fall back to the heuristic classifier which reads the actual JSONL state.
-      } else if (Date.now() - hookStatus.ts * 1000 > 30000) {
-        status = classifyStatus({
-          pid: info.pid,
-          jsonlMtime: mtime,
-          cpuPercent: info.cpuPercent,
-          hasError,
-          isAskingForInput: askingForInput,
-          hasPendingToolUse: pendingToolUse,
-        });
-      } else {
-        status = "waiting";
-        pendingToolUse = true;
-      }
+      status = "working";
     } else {
       status = hookStatus.status;
+      if (hookStatus.event === "PermissionRequest" && status === "waiting") {
+        pendingToolUse = true;
+      }
     }
   } else {
     status = classifyStatus({

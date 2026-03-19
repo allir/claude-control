@@ -22,6 +22,7 @@ import {
 import { getGitSummary, getGitDiff, getMainWorktreePath, getPrUrl } from "./git-info";
 import { classifyStatus } from "./status-classifier";
 import { readAllHookStatuses, HookStatus } from "./hooks-reader";
+import { loadSessionMeta } from "./session-meta";
 import { SessionDetail } from "./types";
 
 async function findLatestJsonl(projectDir: string): Promise<string | null> {
@@ -147,9 +148,10 @@ async function buildSession(
 export async function discoverSessions(): Promise<ClaudeSession[]> {
   // Single ps call builds the full tree (pid, ppid, %cpu, comm) —
   // extract claude PIDs and their CPU% from it, then one lsof for cwds
-  const [processTree, hookStatuses] = await Promise.all([
+  const [processTree, hookStatuses, meta] = await Promise.all([
     buildProcessTree(),
     readAllHookStatuses(),
+    loadSessionMeta(),
   ]);
   const pids = findClaudePidsFromTree(processTree);
   const processInfos = await getAllProcessInfos(pids, processTree);
@@ -160,7 +162,25 @@ export async function discoverSessions(): Promise<ClaudeSession[]> {
       .map((info) => buildSession(info, hookStatuses))
   );
 
-  return results.filter((s): s is ClaudeSession => s !== null);
+  const sessions = results.filter((s): s is ClaudeSession => s !== null);
+
+  // Merge user-provided title/description overrides
+  for (const session of sessions) {
+    const overrides = meta[session.id];
+    if (!overrides) continue;
+    if (!session.taskSummary) {
+      session.taskSummary = { title: "", description: null, source: "user", ticketId: null, ticketUrl: null };
+    }
+    if (overrides.title !== undefined) {
+      session.taskSummary.title = overrides.title;
+      session.taskSummary.source = "user";
+    }
+    if (overrides.description !== undefined) {
+      session.taskSummary.description = overrides.description;
+    }
+  }
+
+  return sessions;
 }
 
 export async function getSessionDetail(sessionId: string): Promise<SessionDetail | null> {

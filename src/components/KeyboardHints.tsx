@@ -46,6 +46,7 @@ export function KeyboardHints({ selectedSession, actionFeedback, onDismiss }: { 
                   {editorAvailable && <Hint keys="E" label="editor" />}
                   {gitGuiAvailable && <Hint keys="G" label="git" />}
                   <Hint keys="F" label="finder" />
+                  <Hint keys="R" label="rename" />
                   {selectedSession.prUrl && <Hint keys="P" label="PR" />}
                   {isWaiting && (
                     <>

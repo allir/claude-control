@@ -57,7 +57,7 @@ export interface ConversationPreview {
 export interface TaskSummary {
   title: string;
   description: string | null;
-  source: "linear" | "prompt";
+  source: "linear" | "prompt" | "user";
   ticketId: string | null;
   ticketUrl: string | null;
 }

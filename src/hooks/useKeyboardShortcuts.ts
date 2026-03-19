@@ -13,9 +13,10 @@ interface UseKeyboardShortcutsOptions {
   onNewInRepo?: (repoPath: string, repoName: string) => void;
   onApproveReject?: (sessionId: string, action: "approve" | "reject") => void;
   onViewModeChange?: (mode: ViewMode) => void;
+  onStartEdit?: (sessionId: string) => void;
 }
 
-export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNewInRepo, onApproveReject, onViewModeChange }: UseKeyboardShortcutsOptions) {
+export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNewInRepo, onApproveReject, onViewModeChange, onStartEdit }: UseKeyboardShortcutsOptions) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ label: string; color: string } | null>(null);
   const { editorAvailable, gitGuiAvailable } = useSettings();
@@ -202,6 +203,11 @@ export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNe
             flash("Rejected", "red");
           }
           break;
+        case "r":
+          e.preventDefault();
+          onStartEdit?.(selectedSession.id);
+          flash("Rename");
+          break;
         case "p":
           if (selectedSession.prUrl) {
             e.preventDefault();
@@ -218,7 +224,7 @@ export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNe
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [orderedSessions, selectedSession, openAction, sendKeystroke, flash, onNewGlobal, onNewInRepo, onApproveReject, editorAvailable, gitGuiAvailable]);
+  }, [orderedSessions, selectedSession, openAction, sendKeystroke, flash, onNewGlobal, onNewInRepo, onApproveReject, onStartEdit, editorAvailable, gitGuiAvailable]);
 
   return { selectedIndex, setSelectedIndex, selectedSession, actionFeedback };
 }

@@ -49,7 +49,7 @@ const cardStyles: Record<SessionStatus, { border: string; glow: string; accent: 
   },
 };
 
-export function SessionCard({ session, targetScreen, pulse, selected, shortcutNumber, actionFeedback, prStatus, onSelect, actedOn, onApproveReject }: { session: ClaudeSession; targetScreen?: number | null; pulse?: boolean; selected?: boolean; shortcutNumber?: number; actionFeedback?: { label: string; color: string } | null; prStatus?: PrStatus | null; onSelect?: () => void; actedOn?: { action: "approve" | "reject"; at: number }; onApproveReject?: (action: "approve" | "reject") => void }) {
+export function SessionCard({ session, targetScreen, pulse, selected, shortcutNumber, actionFeedback, prStatus, onSelect, actedOn, onApproveReject, editing, onStartEdit, onSaveMeta, onCancelEdit }: { session: ClaudeSession; targetScreen?: number | null; pulse?: boolean; selected?: boolean; shortcutNumber?: number; actionFeedback?: { label: string; color: string } | null; prStatus?: PrStatus | null; onSelect?: () => void; actedOn?: { action: "approve" | "reject"; at: number }; onApproveReject?: (action: "approve" | "reject") => void; editing?: boolean; onStartEdit?: () => void; onSaveMeta?: (updates: { title?: string; description?: string }) => void; onCancelEdit?: () => void }) {
   const isSuppressed = !!actedOn;
   const showQuickReply = session.status === "waiting" && session.pid && !isSuppressed;
   const displayStatus = isSuppressed
@@ -175,8 +175,15 @@ export function SessionCard({ session, targetScreen, pulse, selected, shortcutNu
 
           {/* Task summary or output preview */}
           <div className="mb-4 min-h-[3rem] flex-1">
-            {session.taskSummary ? (
-              <TaskSummaryView task={session.taskSummary} />
+            {editing ? (
+              <TaskSummaryView
+                task={session.taskSummary ?? { title: "", description: null, source: "user", ticketId: null, ticketUrl: null }}
+                editing
+                onSave={onSaveMeta}
+                onCancel={onCancelEdit}
+              />
+            ) : session.taskSummary ? (
+              <TaskSummaryView task={session.taskSummary} onStartEdit={onStartEdit} />
             ) : (
               <OutputPreview preview={session.preview} status={session.status} />
             )}

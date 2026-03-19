@@ -16,7 +16,7 @@ import { SessionStatus } from "@/lib/types";
 import Link from "next/link";
 
 export default function Dashboard() {
-  const { sessions, isLoading, error, hooksActive } = useSessions();
+  const { sessions, isLoading, error, hooksActive, refresh } = useSessions();
   const [targetScreen, setTargetScreen] = useState<number | null>(null);
   const [freshlyChanged, setFreshlyChanged] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<{ repoPath?: string; repoName?: string } | null>(null);
@@ -25,6 +25,7 @@ export default function Dashboard() {
   const [dismissToast, setDismissToast] = useState(false);
   // Optimistic approve/reject state: sessionId → { action, timestamp }
   const [actedSessions, setActedSessions] = useState<Record<string, { action: "approve" | "reject"; at: number }>>({});
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
 
   const handleApproveReject = useCallback((sessionId: string, action: "approve" | "reject") => {
     setActedSessions((prev) => ({ ...prev, [sessionId]: { action, at: Date.now() } }));
@@ -43,6 +44,28 @@ export default function Dashboard() {
     localStorage.setItem("viewMode", mode);
   }, []);
 
+  const handleStartEdit = useCallback((sessionId: string) => {
+    setEditingSessionId(sessionId);
+  }, []);
+
+  const handleSaveMeta = useCallback(async (sessionId: string, updates: { title?: string; description?: string }) => {
+    try {
+      await fetch(`/api/sessions/${sessionId}/meta`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      setEditingSessionId(null);
+      refresh();
+    } catch (err) {
+      console.error("Failed to save session meta:", err);
+    }
+  }, [refresh]);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingSessionId(null);
+  }, []);
+
   const { selectedIndex, setSelectedIndex, selectedSession, actionFeedback } = useKeyboardShortcuts({
     sessions,
     targetScreen,
@@ -50,6 +73,7 @@ export default function Dashboard() {
     onNewInRepo: handleNewInRepo,
     onApproveReject: handleApproveReject,
     onViewModeChange: handleViewModeChange,
+    onStartEdit: handleStartEdit,
   });
 
   // Clear optimistic state when backend catches up or after timeout
@@ -210,6 +234,10 @@ export default function Dashboard() {
           onNewSessionInRepo={handleNewInRepo}
           actedSessions={actedSessions}
           onApproveReject={handleApproveReject}
+          editingSessionId={editingSessionId}
+          onStartEdit={handleStartEdit}
+          onSaveMeta={handleSaveMeta}
+          onCancelEdit={handleCancelEdit}
         />
       )}
 

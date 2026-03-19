@@ -46,17 +46,7 @@ A `.node-version` file is included for version managers like [fnm](https://githu
 
 ## Install from DMG
 
-Download the latest `.dmg` from the [Releases](../../releases) page, open it, and drag the app to Applications.
-
-> **Note:** The app is not notarized with Apple, so macOS will block it on first launch. To get past Gatekeeper, either right-click the app and select **Open**, or run:
-> ```bash
-> xattr -cr /Applications/Claude\ Control.app
-> ```
->
-> If the app still crashes on launch, try running it directly from the terminal to see the error:
-> ```bash
-> /Applications/Claude\ Control.app/Contents/MacOS/Claude\ Control
-> ```
+Download the latest `.dmg` from the [Releases](../../releases) page, open it, and drag the app to Applications. Both Apple Silicon and Intel builds are available.
 
 ## Build from source
 

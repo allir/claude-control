@@ -47,7 +47,7 @@ function buildAccentMap(groupNames: string[]): Map<string, typeof REPO_ACCENTS[0
   return map;
 }
 
-export function SessionGrid({ sessions, viewMode, targetScreen, freshlyChanged, selectedIndex, onSelectIndex, actionFeedback, prStatuses, onNewSessionInRepo, actedSessions, onApproveReject }: { sessions: ClaudeSession[]; viewMode: ViewMode; targetScreen?: number | null; freshlyChanged?: Set<string>; selectedIndex?: number | null; onSelectIndex?: (idx: number | null) => void; actionFeedback?: { label: string; color: string } | null; prStatuses?: Record<string, PrStatus | null>; onNewSessionInRepo?: (repoPath: string, repoName: string) => void; actedSessions?: Record<string, { action: "approve" | "reject"; at: number }>; onApproveReject?: (sessionId: string, action: "approve" | "reject") => void }) {
+export function SessionGrid({ sessions, viewMode, targetScreen, freshlyChanged, selectedIndex, onSelectIndex, actionFeedback, prStatuses, onNewSessionInRepo, actedSessions, onApproveReject, editingSessionId, onStartEdit, onSaveMeta, onCancelEdit }: { sessions: ClaudeSession[]; viewMode: ViewMode; targetScreen?: number | null; freshlyChanged?: Set<string>; selectedIndex?: number | null; onSelectIndex?: (idx: number | null) => void; actionFeedback?: { label: string; color: string } | null; prStatuses?: Record<string, PrStatus | null>; onNewSessionInRepo?: (repoPath: string, repoName: string) => void; actedSessions?: Record<string, { action: "approve" | "reject"; at: number }>; onApproveReject?: (sessionId: string, action: "approve" | "reject") => void; editingSessionId?: string | null; onStartEdit?: (sessionId: string) => void; onSaveMeta?: (sessionId: string, updates: { title?: string; description?: string }) => void; onCancelEdit?: () => void }) {
   if (sessions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-32">
@@ -113,6 +113,10 @@ export function SessionGrid({ sessions, viewMode, targetScreen, freshlyChanged, 
         onSelect={() => onSelectIndex?.(isSelected ? null : idx)}
         actedOn={actedSessions?.[session.id]}
         onApproveReject={onApproveReject ? (action) => onApproveReject(session.id, action) : undefined}
+        editing={editingSessionId === session.id}
+        onStartEdit={onStartEdit ? () => onStartEdit(session.id) : undefined}
+        onSaveMeta={onSaveMeta ? (updates) => onSaveMeta(session.id, updates) : undefined}
+        onCancelEdit={onCancelEdit}
       />
     );
   };

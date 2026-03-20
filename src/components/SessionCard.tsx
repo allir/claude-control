@@ -25,7 +25,7 @@ const cardStyles: Record<SessionStatus, { border: string; glow: string; accent: 
   working: {
     border: "border-emerald-500/20 hover:border-emerald-500/40",
     glow: "glow-green",
-    accent: "from-emerald-500/[0.07] to-transparent",
+    accent: "from-emerald-500/7 to-transparent",
   },
   idle: {
     border: "border-amber-500/15 hover:border-amber-500/30",
@@ -35,12 +35,12 @@ const cardStyles: Record<SessionStatus, { border: string; glow: string; accent: 
   waiting: {
     border: "border-blue-500/20 hover:border-blue-500/40",
     glow: "glow-blue",
-    accent: "from-blue-500/[0.07] to-transparent",
+    accent: "from-blue-500/7 to-transparent",
   },
   errored: {
     border: "border-red-500/20 hover:border-red-500/40",
     glow: "glow-red",
-    accent: "from-red-500/[0.07] to-transparent",
+    accent: "from-red-500/7 to-transparent",
   },
   finished: {
     border: "border-zinc-700/30 hover:border-zinc-600/50",

@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "electron:dev": "concurrently --kill-others \"next dev -p 3200\" \"wait-on http://localhost:3200 && electron .\"",
     "electron:build": "next build && node scripts/prepare-build.js && electron-builder --mac --publish never",
@@ -18,7 +18,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "next": "^15.5.14",
+    "next": "^16.2.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "swr": "^2.4.1"
@@ -31,8 +31,8 @@
     "concurrently": "^9.2.1",
     "electron": "^41.0.0",
     "electron-builder": "^26.8.1",
-    "eslint": "^8",
-    "eslint-config-next": "^15.5.14",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.0",
     "postcss": "^8",
     "tailwindcss": "^4.2.2",
     "typescript": "^5",

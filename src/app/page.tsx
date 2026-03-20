@@ -295,7 +295,7 @@ export default function Dashboard() {
       {dismissToast && (
         <div className="fixed bottom-0 inset-x-0 z-40 pointer-events-none">
           <div className="max-w-7xl mx-auto px-6 pb-4">
-            <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#0a0a0f]/90 backdrop-blur-md border border-white/[0.06] pointer-events-auto text-xs text-zinc-500">
+            <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#0a0a0f]/90 backdrop-blur-md border border-white/6 pointer-events-auto text-xs text-zinc-500">
               Keyboard hints hidden. Re-enable in{" "}
               <Link href="/settings" className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors">
                 Settings

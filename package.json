@@ -18,7 +18,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "next": "14.2.35",
+    "next": "^15.5.14",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "swr": "^2.4.1"
@@ -32,7 +32,7 @@
     "electron": "^41.0.0",
     "electron-builder": "^26.8.1",
     "eslint": "^8",
-    "eslint-config-next": "14.2.35",
+    "eslint-config-next": "^15.5.14",
     "postcss": "^8",
     "tailwindcss": "^4.2.2",
     "typescript": "^5",
